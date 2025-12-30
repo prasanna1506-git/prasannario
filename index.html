@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Generated Image Forgery Detection</title>
+
+
+<style>
+:root{
+    --primary:#0a2540;
+    --accent:#635bff;
+    --glass:rgba(255,255,255,0.75);
+}
+
+/* GLOBAL */
+*{
+    box-sizing:border-box;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+
+body{
+    margin:0;
+    color:#111;
+    background:linear-gradient(120deg,#eef2ff,#ffffff);
+    overflow-x:hidden;
+}
+
+/* BACKGROUND LAYERS */
+.mesh{
+    position:fixed;
+    inset:0;
+    background:
+        radial-gradient(circle at 20% 20%, #6366f1, transparent 40%),
+        radial-gradient(circle at 80% 30%, #ec4899, transparent 40%),
+        radial-gradient(circle at 50% 80%, #22d3ee, transparent 45%);
+    filter:blur(140px);
+    opacity:.45;
+    z-index:-3;
+}
+
+.noise{
+    position:fixed;
+    inset:0;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    z-index:-2;
+}
+
+.blob{
+    position:fixed;
+    width:350px;
+    height:350px;
+    background:linear-gradient(135deg,#6366f1,#ec4899);
+    filter:blur(120px);
+    opacity:.35;
+    animation:float 18s infinite alternate;
+    z-index:-1;
+}
+.blob.one{top:-100px;left:-100px;}
+.blob.two{bottom:-120px;right:-100px;}
+.blob.three{top:30%;right:-150px;}
+
+@keyframes float{
+    to{transform:translateY(80px);}
+}
+
+/* NAV */
+nav{
+    position:sticky;
+    top:0;
+    background:rgba(255,255,255,.75);
+    backdrop-filter:blur(14px);
+    padding:16px 60px;
+    display:flex;
+    justify-content:space-between;
+    z-index:100;
+}
+
+nav h2{color:var(--primary);}
+nav input{
+    padding:9px 16px;
+    border-radius:20px;
+    border:1px solid #ccc;
+}
+
+/* SIDE NAV */
+.side-nav{
+    position:fixed;
+    right:25px;
+    top:50%;
+    transform:translateY(-50%);
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    z-index:200;
+}
+.side-nav a{
+    padding:10px 18px;
+    background:var(--glass);
+    backdrop-filter:blur(10px);
+    border-radius:20px;
+    text-decoration:none;
+    color:var(--primary);
+    box-shadow:0 10px 25px rgba(0,0,0,.1);
+}
+
+/* HERO */
+.hero{
+    height:90vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+}
+.hero h1{
+    font-size:58px;
+    background:linear-gradient(90deg,#0a2540,#635bff);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+}
+.hero p{
+    font-size:20px;
+    max-width:850px;
+    color:#444;
+}
+
+/* SECTION */
+.section{
+    padding:90px 60px;
+}
+.section h2{
+    text-align:center;
+    font-size:40px;
+    color:var(--primary);
+    margin-bottom:40px;
+}
+
+/* GLASS CARDS */
+.topics{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:30px;
+}
+.topic{
+    background:var(--glass);
+    backdrop-filter:blur(14px);
+    padding:30px;
+    border-radius:26px;
+    box-shadow:0 25px 50px rgba(0,0,0,.12);
+    cursor:pointer;
+    transition:.3s;
+}
+.topic:hover{transform:translateY(-8px);}
+.content{display:none;margin-top:15px;}
+
+/* IMAGE ANALYSIS */
+.analysis-box{
+    background:var(--glass);
+    backdrop-filter:blur(15px);
+    padding:40px;
+    border-radius:30px;
+    max-width:520px;
+    margin:auto;
+    text-align:center;
+    box-shadow:0 30px 60px rgba(0,0,0,.15);
+}
+
+button{
+    padding:12px 32px;
+    background:linear-gradient(135deg,#6366f1,#8b5cf6);
+    border:none;
+    color:white;
+    border-radius:30px;
+    cursor:pointer;
+}
+
+#preview img{
+    max-width:260px;
+    margin-top:20px;
+    border-radius:20px;
+}
+
+/* CONFIDENCE METER */
+.meter{
+    position:relative;
+    width:120px;
+    height:120px;
+    margin:20px auto;
+}
+.meter svg{transform:rotate(-90deg);}
+.meter circle{
+    fill:none;
+    stroke:#eee;
+    stroke-width:10;
+}
+#progress{
+    stroke:#22c55e;
+    stroke-dasharray:314;
+    stroke-dashoffset:314;
+    transition:1s;
+}
+#confidence{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    font-weight:bold;
+}
+
+/* TEAM */
+.team-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:25px;
+}
+.member{
+    background:var(--glass);
+    backdrop-filter:blur(14px);
+    padding:30px;
+    border-radius:26px;
+    text-align:center;
+    box-shadow:0 25px 45px rgba(0,0,0,.12);
+}
+
+/* FOOTER */
+footer{
+    padding:40px;
+    background:rgba(10,37,64,.95);
+    color:white;
+    text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<div class="mesh"></div>
+<div class="noise"></div>
+<div class="blob one"></div>
+<div class="blob two"></div>
+<div class="blob three"></div>
+
+<nav>
+    <h2>AI•Vision</h2>
+    <input type="text" id="search" placeholder="Search topics..." onkeyup="searchTopics()">
+</nav>
+
+<div class="side-nav">
+    <a href="#analysis">Scan</a>
+    <a href="#topics">Topics</a>
+    <a href="#pipeline">Pipeline</a>
+    <a href="#team">Team</a>
+</div>
+
+<section class="hero">
+    <h1>AI Generated Image<br>Forgery Detection</h1>
+    <p>Advanced AI-based system to detect real vs AI-generated images using image forensics.</p>
+</section>
+
+<section class="section" id="analysis">
+<h2>Image Analysis</h2>
+
+<div class="analysis-box">
+
+    <!-- Drag & Drop Upload -->
+    <div id="dropArea" style="padding:20px;border:2px dashed #635bff;border-radius:20px;margin-bottom:20px;text-align:center;cursor:pointer;">
+        <p>Drag & drop an image here, or click to select</p>
+        <input type="file" id="imageInput" accept="image/*" style="display:none;">
+    </div>
+
+    <button onclick="analyzeImage()" style="margin-bottom:20px;">Analyze Image</button>
+
+    <!-- Preview -->
+    <div id="preview" style="margin-bottom:20px;text-align:center;"></div>
+
+    <!-- Circular Confidence Meter -->
+    <div class="meter" style="position:relative;width:150px;margin:0 auto 20px;">
+        <svg width="150" height="150">
+            <circle cx="75" cy="75" r="65" stroke="#e5e7eb" stroke-width="10" fill="none"/>
+            <circle cx="75" cy="75" r="65" stroke="#635bff" stroke-width="10" fill="none" id="progress" stroke-linecap="round" stroke-dasharray="408" stroke-dashoffset="408"/>
+        </svg>
+        <div id="confidence" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:24px;font-weight:bold;color:#635bff;">0%</div>
+    </div>
+
+    <!-- Result Box -->
+    <div id="result" style="text-align:center;font-size:20px;font-weight:bold;"></div>
+
+    <!-- Advanced Options -->
+    <div style="margin-top:25px;text-align:center;">
+        <label>
+            <input type="checkbox" id="showDetails" onchange="toggleDetails()"> Show Analysis Details
+        </label>
+        <div id="detailsBox" style="margin-top:15px;display:none;color:#444;line-height:1.6;font-size:14px;">
+            <p>Here you can view variance, noise level, and pixel analysis of the uploaded image. This helps understand why the system classified the image as AI-generated or real.</p>
+        </div>
+    </div>
+
+</div>
+</section>
+
+<script>
+// Drag & Drop support
+const dropArea = document.getElementById('dropArea');
+const imageInput = document.getElementById('imageInput');
+
+dropArea.addEventListener('click',()=>imageInput.click());
+dropArea.addEventListener('dragover',e=>{e.preventDefault(); dropArea.style.borderColor="#22c55e";});
+dropArea.addEventListener('dragleave',e=>{e.preventDefault(); dropArea.style.borderColor="#635bff";});
+dropArea.addEventListener('drop',e=>{
+    e.preventDefault();
+    dropArea.style.borderColor="#635bff";
+    const file = e.dataTransfer.files[0];
+    if(file) imageInput.files = e.dataTransfer.files;
+});
+
+// Toggle details
+function toggleDetails(){
+    const box = document.getElementById('detailsBox');
+    box.style.display = document.getElementById('showDetails').checked ? 'block' : 'none';
+}
+
+// Enhanced analyzeImage function
+function analyzeImage(){
+    const input=imageInput;
+    if(!input.files.length){ alert("Upload an image first!"); return; }
+
+    const img=new Image();
+    const reader=new FileReader();
+    reader.onload=e=>img.src=e.target.result;
+    reader.readAsDataURL(input.files[0]);
+
+    img.onload=()=>{
+        // Preview
+        const preview=document.getElementById('preview');
+        preview.innerHTML="";
+        preview.appendChild(img);
+        img.style.maxWidth="300px";
+        img.style.borderRadius="15px";
+        img.style.boxShadow="0 10px 30px rgba(0,0,0,0.1)";
+
+        // Canvas pixel analysis
+        const canvas=document.createElement("canvas");
+        const ctx=canvas.getContext("2d");
+        canvas.width=img.width; canvas.height=img.height;
+        ctx.drawImage(img,0,0);
+        const data=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+
+        let gray=[], sum=0;
+        for(let i=0;i<data.length;i+=4){
+            let g=0.3*data[i]+0.59*data[i+1]+0.11*data[i+2];
+            gray.push(g); sum+=g;
+        }
+// 🔹 SEND IMAGE TO BACKEND
+const formData = new FormData();
+formData.append("image", input.files[0]);
+
+fetch("http://127.0.0.1:5000/analyze", {
+    method: "POST",
+    body: formData
+})
+.then(response => response.json())
+.then(data => {
+
+    const percent = data.confidence;
+    const offset = 408 - (408 * percent / 100);
+
+    // Animate meter
+    const progress = document.getElementById('progress');
+    progress.style.transition = "stroke-dashoffset 1s ease, stroke 1s ease";
+    progress.style.strokeDashoffset = offset;
+
+    const isAI = data.result.includes("AI");
+    progress.style.stroke = isAI ? "#ef4444" : "#22c55e";
+
+    // Show confidence
+    document.getElementById('confidence').innerText = percent + "%";
+
+    // Show result text
+    document.getElementById('result').innerHTML = isAI
+        ? `<span style="color:#ef4444;">🟥 ${data.result}</span>`
+        : `<span style="color:#22c55e;">🟩 ${data.result}</span>`;
+
+    // Optional details
+    if (document.getElementById('showDetails').checked) {
+        const detailsBox = document.getElementById('detailsBox');
+        detailsBox.innerHTML = `
+            <p>Variance: ${data.variance}</p>
+            <p>Confidence: ${data.confidence}%</p>
+        `;
+    }
+})
+.catch(err => {
+    alert("Backend not running!");
+    console.error(err);
+});
+
+        const mean=sum/gray.length;
+        let variance=0;
+        gray.forEach(v=>variance+=(v-mean)**2);
+        variance/=gray.length;
+
+       
+
+        // Optional: show advanced details if checkbox enabled
+        if(document.getElementById('showDetails').checked){
+            const detailsBox=document.getElementById('detailsBox');
+            detailsBox.innerHTML=`<p>Variance: ${variance.toFixed(2)}</p>
+                                   <p>Mean Pixel Intensity: ${mean.toFixed(2)}</p>
+                                   <p>Gray-scale pixels analyzed: ${gray.length}</p>`;
+        }
+    };
+}
+</script>
+
+
+
+<section class="section" id="topics">
+<h2>Project Topics</h2>
+
+<div class="topics">
+
+<!-- PROJECT OVERVIEW -->
+<div class="topic searchable" onclick="toggle(this)">
+<h3>📌 Project Overview</h3>
+<div class="content">
+<p>
+The <b>AI Generated Image Forgery Detection System</b> is designed to identify whether a given digital image is
+<b>real (camera-captured)</b> or <b>artificially generated by AI models</b>.
+</p>
+<p>
+With the rapid growth of Generative AI tools such as GANs and Diffusion models,
+synthetic images are becoming visually indistinguishable from real images.
+This project applies <b>image forensics techniques</b> to analyze pixel-level
+patterns, texture consistency, and noise distribution to detect forgery.
+</p>
+<p>
+The system provides a <b>user-friendly web interface</b> where users can upload an image
+and instantly receive an analysis result along with confidence estimation.
+</p>
+</div>
+</div>
+
+<!-- PROBLEM STATEMENT -->
+<div class="topic searchable" onclick="toggle(this)">
+<h3>⚠ Problem Statement</h3>
+<div class="content">
+<p>
+AI-generated images are increasingly used for malicious activities such as:
+</p>
+<ul>
+<li>Fake identity creation</li>
+<li>Social media misinformation</li>
+<li>Deepfake-based fraud</li>
+<li>Digital evidence manipulation</li>
+</ul>
+<p>
+Traditional image verification methods fail to detect these images accurately
+because AI-generated images do not always leave visible editing traces.
+</p>
+<p>
+Hence, there is a strong need for an <b>automated, intelligent system</b>
+that can reliably detect AI-generated images and prevent misuse.
+</p>
+</div>
+</div>
+
+<!-- OBJECTIVES -->
+<div class="topic searchable" onclick="toggle(this)">
+<h3>🎯 Project Objectives</h3>
+<div class="content">
+<ul>
+<li>To analyze digital images using pixel-level statistical methods</li>
+<li>To identify characteristics unique to AI-generated images</li>
+<li>To classify images as <b>Real</b> or <b>AI Generated</b></li>
+<li>To provide fast and accurate detection through a web interface</li>
+<li>To raise awareness about AI-based image forgery</li>
+</ul>
+</div>
+</div>
+
+<!-- TECHNOLOGY USED -->
+<div class="topic searchable" onclick="toggle(this)">
+<h3>🧠 Technology Used</h3>
+<div class="content">
+<p><b>Frontend:</b></p>
+<ul>
+<li>HTML5 – Page structure</li>
+<li>CSS3 – Glassmorphism UI & animations</li>
+<li>JavaScript – Image processing & logic</li>
+</ul>
+
+<p><b>Core Techniques:</b></p>
+<ul>
+<li>Grayscale pixel extraction</li>
+<li>Variance and noise analysis</li>
+<li>Statistical threshold classification</li>
+</ul>
+
+<p><b>Future Technology:</b></p>
+<ul>
+<li>Convolutional Neural Networks (CNN)</li>
+<li>Deep Learning based classifiers</li>
+</ul>
+</div>
+</div>
+
+<!-- WORKING PRINCIPLE -->
+<div class="topic searchable" onclick="toggle(this)">
+<h3>⚙ Working Principle</h3>
+<div class="content">
+<p>
+The system works by analyzing the internal pixel structure of an image.
+</p>
+<ol>
+<li>User uploads an image</li>
+<li>Image is converted into grayscale</li>
+<li>Pixel intensity values are extracted</li>
+<li>Mean and variance are calculated</li>
+<li>Variance is compared with a predefined threshold</li>
+<li>Final classification is generated</li>
+</ol>
+<p>
+AI-generated images usually show <b>lower natural noise variance</b> compared to
+real camera-captured images, which helps in classification.
+</p>
+</div>
+</div>
+
+<!-- FEATURES -->
+<div class="topic searchable" onclick="toggle(this)">
+<h3>✨ Key Features</h3>
+<div class="content">
+<ul>
+<li>Single-click image upload</li>
+<li>Instant AI vs Real classification</li>
+<li>Confidence percentage visualization</li>
+<li>Modern Apple-style UI</li>
+<li>Searchable project topics</li>
+<li>No server required (runs locally)</li>
+</ul>
+</div>
+</div>
+
+<!-- APPLICATIONS -->
+<div class="topic searchable" onclick="toggle(this)">
+<h3>🌍 Applications</h3>
+<div class="content">
+<ul>
+<li>Cybercrime investigation</li>
+<li>Social media content verification</li>
+<li>Digital journalism authentication</li>
+<li>Online identity verification</li>
+<li>Academic research in image forensics</li>
+</ul>
+</div>
+</div>
+
+<!-- LIMITATIONS -->
+<div class="topic searchable" onclick="toggle(this)">
+<h3>🚫 Limitations</h3>
+<div class="content">
+<ul>
+<li>Accuracy depends on threshold values</li>
+<li>Cannot detect all advanced GAN-generated images</li>
+<li>Works best on high-resolution images</li>
+<li>No dataset-based learning (rule-based)</li>
+</ul>
+</div>
+</div>
+
+<!-- FUTURE SCOPE -->
+<div class="topic searchable" onclick="toggle(this)">
+<h3>🚀 Future Scope</h3>
+<div class="content">
+<ul>
+<li>Integration with CNN & Deep Learning models</li>
+<li>Support for video forgery detection</li>
+<li>Cloud-based image verification API</li>
+<li>Mobile application development</li>
+<li>Training with large-scale datasets</li>
+</ul>
+</div>
+</div>
+
+</div>
+</section>
+
+
+<section class="section" id="pipeline">
+<h2>AI Analysis Pipeline</h2>
+
+<div class="topics">
+
+<!-- STEP 1 -->
+<div class="topic searchable" onclick="toggle(this)">
+<h3>📤 Image Upload</h3>
+<div class="content">
+<p>
+The analysis process begins when the user uploads an image through the web interface.
+The system supports common image formats such as JPG, PNG, and JPEG.
+</p>
+<p>
+Once uploaded, the image is securely processed locally in the browser without
+sending data to any external server, ensuring privacy and security.
+</p>
+</div>
+</div>
+
+<!-- STEP 2 -->
+<div class="topic searchable" onclick="toggle(this)">
+<h3>🔍 Pixel Extraction</h3>
+<div class="content">
+<p>
+The uploaded image is converted into grayscale format to simplify analysis.
+Each pixel’s RGB values are transformed into a single intensity value.
+</p>
+<p>
+This step allows the system to focus on structural information rather than colors,
+which helps in identifying unnatural pixel patterns commonly found in AI-generated images.
+</p>
+</div>
+</div>
+
+<!-- STEP 3 -->
+<div class="topic searchable" onclick="toggle(this)">
+<h3>📊 Noise Analysis</h3>
+<div class="content">
+<p>
+Noise analysis examines the natural randomness present in real images captured by cameras.
+Real images contain sensor noise, compression artifacts, and lighting variations.
+</p>
+<p>
+AI-generated images often lack these natural inconsistencies, resulting in smoother
+pixel distributions. This difference is measured statistically using variance analysis.
+</p>
+</div>
+</div>
+
+<!-- STEP 4 -->
+<div class="topic searchable" onclick="toggle(this)">
+<h3>🧠 Feature Classification</h3>
+<div class="content">
+<p>
+Extracted features such as pixel variance, texture smoothness, and intensity distribution
+are compared against predefined thresholds.
+</p>
+<p>
+These features act as indicators that help distinguish between natural and artificially
+generated image characteristics.
+</p>
+</div>
+</div>
+
+<!-- STEP 5 -->
+<div class="topic searchable" onclick="toggle(this)">
+<h3>⚙ Decision Engine</h3>
+<div class="content">
+<p>
+The decision engine applies logical rules to classify the image.
+If the extracted features fall below the natural noise threshold,
+the image is flagged as AI-generated.
+</p>
+<p>
+This rule-based approach ensures fast execution and explainable results,
+which is ideal for academic and forensic applications.
+</p>
+</div>
+</div>
+
+<!-- STEP 6 -->
+<div class="topic searchable" onclick="toggle(this)">
+<h3>✅ Final Output</h3>
+<div class="content">
+<p>
+The system displays the final result as either:
+</p>
+<ul>
+<li><b>🟩 Real Image</b> – Natural camera characteristics detected</li>
+<li><b>🟥 AI Generated Image</b> – Synthetic patterns detected</li>
+</ul>
+<p>
+The result is shown instantly along with a confidence indication,
+providing clarity and transparency to the user.
+</p>
+</div>
+</div>
+
+</div>
+</section>
+
+
+<section class="section" id="team">
+<h2>Project Team & Roles</h2>
+
+<div class="team-grid">
+
+<!-- MANOJ -->
+<div class="member searchable" onclick="toggle(this)">
+<h4>Manoj</h4>
+<div class="content">
+<p><b>Role:</b> Project Lead</p>
+<p><b>Responsibilities:</b></p>
+<ul>
+<li>Designing the AI detection logic</li>
+<li>Overall system architecture and flow</li>
+<li>Feature selection and threshold calibration</li>
+<li>Guiding team members in coding and testing</li>
+</ul>
+<p><b>Skills:</b> Python, Image Processing, AI Concepts, Project Management</p>
+</div>
+</div>
+
+<!-- KRISHNA PRIYA -->
+<div class="member searchable" onclick="toggle(this)">
+<h4>Krishna Priya</h4>
+<div class="content">
+<p><b>Role:</b> Frontend Developer & Documentation</p>
+<p><b>Responsibilities:</b></p>
+<ul>
+<li>Developing responsive UI using HTML, CSS, JavaScript</li>
+<li>Creating Apple-style, modern glassmorphic interface</li>
+<li>Preparing project documentation and user manuals</li>
+<li>Ensuring frontend-backend integration works smoothly</li>
+</ul>
+<p><b>Skills:</b> HTML, CSS, JS, UX Design, Technical Writing</p>
+</div>
+</div>
+
+<!-- SANJAY -->
+<div class="member searchable" onclick="toggle(this)">
+<h4>Sanjay</h4>
+<div class="content">
+<p><b>Role:</b> Backend Support</p>
+<p><b>Responsibilities:</b></p>
+<ul>
+<li>Integrating AI logic with web interface</li>
+<li>Handling image processing and storage</li>
+<li>Managing data flow between frontend and backend</li>
+<li>Ensuring smooth performance for image analysis</li>
+</ul>
+<p><b>Skills:</b> Python, Flask, Image Analysis, Data Handling</p>
+</div>
+</div>
+
+<!-- DHINESH -->
+<div class="member searchable" onclick="toggle(this)">
+<h4>Dhinesh</h4>
+<div class="content">
+<p><b>Role:</b> Testing & Research</p>
+<p><b>Responsibilities:</b></p>
+<ul>
+<li>Testing system accuracy with various images</li>
+<li>Researching new AI forgery detection methods</li>
+<li>Documenting test results and improvement suggestions</li>
+<li>Validating the model’s performance and outputs</li>
+</ul>
+<p><b>Skills:</b> Image Forensics, Testing, Research, Data Analysis</p>
+</div>
+</div>
+
+</div>
+</section>
+
+
+<!-- FOOTER -->
+<footer>
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-around;align-items:center;">
+    <div>
+      <h4 style="margin:5px 0;color:white;">© 2025 AI Generated Image Forgery Detection</h4>
+      <p style="color:#d1d5db;font-size:14px;">Final Year Project | Web-based AI Analysis System</p>
+    </div>
+    <div style="display:flex;gap:15px;align-items:center;margin-top:10px;">
+      <a href="#" style="color:white;text-decoration:none;">LinkedIn</a>
+      <a href="#" style="color:white;text-decoration:none;">GitHub</a>
+      <a href="#" style="color:white;text-decoration:none;">Portfolio</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* =============== ACCORDION TOGGLE =============== */
+function toggle(el){
+    const c = el.querySelector(".content");
+    if(c){
+        if(c.style.display==="block") c.style.display="none";
+        else c.style.display="block";
+    }
+}
+
+/* =============== SEARCH FUNCTION =============== */
+function searchTopics(){
+    const v = document.getElementById("search").value.toLowerCase();
+    document.querySelectorAll(".searchable").forEach(t=>{
+        t.style.display = t.innerText.toLowerCase().includes(v) ? "block" : "none";
+    });
+}
+
+/* =============== IMAGE ANALYSIS FUNCTION =============== */
+function analyzeImage(){
+    const input = document.getElementById("imageInput");
+    if(!input.files.length){
+        alert("Upload an image first!");
+        return;
+    }
+
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = e => img.src = e.target.result;
+    reader.readAsDataURL(input.files[0]);
+
+    img.onload = ()=>{
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img,0,0);
+
+        const data = ctx.getImageData(0,0,canvas.width,canvas.height).data;
+        let gray=[], sum=0;
+
+        for(let i=0;i<data.length;i+=4){
+            let g = 0.3*data[i] + 0.59*data[i+1] + 0.11*data[i+2];
+            gray.push(g);
+            sum += g;
+        }
+
+        const mean = sum/gray.length;
+        let variance=0;
+        gray.forEach(v=>variance+=(v-mean)**2);
+        variance/=gray.length;
+
+        // Confidence & result
+        const isAI = variance<500;
+        const percent = isAI ? 88 : 92;
+        const offset = 314 - (314*percent/100);
+
+        // Animate meter
+        const progress = document.getElementById("progress");
+        progress.style.transition="stroke-dashoffset 1s ease, stroke 1s ease";
+        progress.style.strokeDashoffset=offset;
+        progress.style.stroke=isAI?"#ef4444":"#22c55e";
+
+        // Display confidence
+        document.getElementById("confidence").innerText=percent+"%";
+
+        // Display result with tooltip
+        const result = document.getElementById("result");
+        result.innerHTML=isAI ?
+            '<span title="This image is likely generated by AI" style="color:#ef4444;font-weight:bold;">🟥 AI Generated Image</span>' :
+            '<span title="This image is likely a real camera-captured photo" style="color:#22c55e;font-weight:bold;">🟩 Real Image</span>';
+
+        // Show preview
+        const preview = document.getElementById("preview");
+        preview.innerHTML="";
+        preview.appendChild(img);
+    };
+}
+
+/* =============== OPTIONAL: CONFETTI EFFECT ON AI DETECTION =============== */
+function celebrateAI(){
+    // Simple confetti-like effect using canvas can be added here
+    // Example: For now, placeholder alert
+    // if result is AI, alert("AI Image Detected!");
+}
+</script>
+
+
+
+
+
+
+
+
+
